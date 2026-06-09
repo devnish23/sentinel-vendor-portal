@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  sentinel-vendor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Point at your company API server.
+        # Requests to /api/* are forwarded by nginx to this URL.
+        VITE_API_BASE_URL: ${API_BASE_URL:-http://api:3001}
+    image: sentinel-vendor-portal:latest
+    container_name: sentinel-vendor
+    ports:
+      - "8080:80"
+    environment:
+      # Runtime: nginx uses this to proxy /api/* (requires nginx template substitution,
+      # see nginx/default.conf for details)
+      API_BASE_URL: ${API_BASE_URL:-http://api:3001}
+    restart: unless-stopped
+    networks:
+      - sentinel-net
+
+networks:
+  sentinel-net:
+    driver: bridge

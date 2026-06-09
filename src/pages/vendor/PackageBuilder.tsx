@@ -1,0 +1,120 @@
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Layers, Plus } from "lucide-react";
+
+
+
+const PACKAGE_TYPES = ["Hub package","Vault package","Agent package","Customer offline package","Vendor deployment package","Patch package","Upgrade package","Rollback package","Support tool package"];
+
+export default function PackageBuilder() {
+  const [packages, setPackages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [generated, setGenerated] = useState<any>(null);
+  const [msg, setMsg] = useState("");
+  const [form, setForm] = useState({ type: "Hub package", customerId: "CUST-ALPHA", siteId: "SITE-SG-001", version: "3.0.1", productEdition: "Enterprise", includeDocumentation: true, includeChecksum: true, includeManifest: true, includeRollbackGuide: false });
+
+  const refresh = () => api.get("/vendor/packages").then(setPackages).finally(() => setLoading(false));
+  useEffect(() => { refresh(); }, []);
+
+  async function generate() {
+    const pkg = await api.post("/vendor/packages/generate", form);
+    setGenerated(pkg);
+    setMsg(`Package ${pkg.id} generated — audit log created`);
+    refresh(); setTimeout(() => setMsg(""), 5000);
+  }
+
+  if (loading) return <div className="p-8 text-slate-500 text-sm">Loading…</div>;
+
+  return (
+    <div className="p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white">Package Builder</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Build customer deployment packages</p>
+        </div>
+        <button onClick={() => setShowForm(v => !v)} className="flex items-center gap-1.5 text-xs bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-violet-400">
+          <Plus size={13} />New Package
+        </button>
+      </div>
+
+      {msg && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm rounded-lg px-4 py-2">{msg}</div>}
+
+      {showForm && (
+        <div className="bg-slate-900 border border-violet-500/20 rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-white">Package Builder Form</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Package Type</label>
+              <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-violet-500">
+                {PACKAGE_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            {[["customerId","Customer ID"],["siteId","Site ID"],["version","Version"]].map(([k,label]) => (
+              <div key={k}>
+                <label className="block text-xs text-slate-400 mb-1">{label}</label>
+                <input value={(form as any)[k]} onChange={e => setForm(p => ({ ...p, [k]: e.target.value }))}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-violet-500" />
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4 text-xs text-slate-300">
+            {[["includeDocumentation","Include Documentation"],["includeChecksum","Include Checksum"],["includeManifest","Include Manifest"],["includeRollbackGuide","Include Rollback Guide"]].map(([k,label]) => (
+              <label key={k} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={(form as any)[k]} onChange={e => setForm(p => ({ ...p, [k]: e.target.checked }))} className="accent-violet-500" />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={generate} className="text-sm bg-violet-500 text-white font-semibold px-4 py-1.5 rounded-lg hover:bg-violet-400">Generate Package</button>
+            <button onClick={() => setShowForm(false)} className="text-sm bg-slate-800 text-slate-300 px-4 py-1.5 rounded-lg">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {generated && (
+        <div className="bg-slate-900 border border-violet-500/20 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3"><Layers size={14} className="text-violet-400" /><span className="text-sm font-bold text-white">Generated Package</span></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            {[["Package ID",generated.id],["Type",generated.type],["Customer",generated.customerId],["Version",generated.version],["Generated By",generated.generatedBy],["Signature",generated.signatureStatus],["Checksum",generated.checksum],["Manifest",generated.manifest]].map(([k,v]) => (
+              <div key={k} className="bg-slate-800/50 rounded p-2.5"><div className="text-slate-500 mb-0.5">{k}</div><div className="text-white break-all font-medium">{v}</div></div>
+            ))}
+          </div>
+          <button className="mt-3 text-xs bg-violet-500/20 text-violet-400 border border-violet-500/20 px-3 py-1.5 rounded-lg hover:bg-violet-500/30">Download Package (placeholder)</button>
+        </div>
+      )}
+
+      <div className="bg-slate-900 border border-white/5 rounded-xl overflow-x-auto">
+        <div className="px-4 py-3 border-b border-white/5 text-sm font-bold text-white">Package History</div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-slate-500 border-b border-white/5">
+              {["Package ID","Type","Customer","Site","Version","Generated By","Generated Time","Manifest","Checksum","Signature",""].map(h => (
+                <th key={h} className="text-left px-4 py-3 font-medium whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {packages.map(p => (
+              <tr key={p.id} className="border-b border-white/5 hover:bg-white/2">
+                <td className="px-4 py-3 font-mono text-xs text-slate-400">{p.id}</td>
+                <td className="px-4 py-3 text-xs text-slate-300">{p.type}</td>
+                <td className="px-4 py-3 text-xs text-slate-400">{p.customerId}</td>
+                <td className="px-4 py-3 text-xs text-slate-400">{p.siteId}</td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-400">{p.version}</td>
+                <td className="px-4 py-3 text-xs text-slate-400">{p.generatedBy}</td>
+                <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{new Date(p.generatedTime).toLocaleString()}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 font-mono max-w-[140px] truncate">{p.manifest}</td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-500 max-w-[120px] truncate">{p.checksum}</td>
+                <td className="px-4 py-3"><StatusBadge status={p.signatureStatus} /></td>
+                <td className="px-4 py-3"><button className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded hover:bg-slate-600">Download</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
